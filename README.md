@@ -1,5 +1,5 @@
 # A3C-Test
-Please run `python3 A3C_Cartpole.py`
+Please run `python3 A3C_Cartpole_new.py`
 
 For **A2C**, please use the following `main()`
 ```
