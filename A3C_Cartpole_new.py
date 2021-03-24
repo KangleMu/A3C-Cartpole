@@ -224,14 +224,15 @@ class LocalAgent(NeuralNetwork):
         return r1 + r2
 
 
-def local_run(global_net, index, lock):
+def local_run(global_net, index, lock, plot=False):
     local_agent = LocalAgent(ob_shape=4,
                              action_shape=2,
                              ini_weight=ini_weights,
                              seed=1,
                              index=index,
                              global_net=global_net,
-                             lock=lock)
+                             lock=lock,
+                             plot=plot)
     local_agent.train()
 
 
@@ -242,15 +243,6 @@ if __name__ == '__main__':
     global_net = GlobalNetwork(ob_shape=4, action_shape=2)
     ini_weights = global_net.get_weights()
 
-    # # multiprocessing
-    # #mp.set_start_method('spawn')
-    # lock = mp.Lock()
-    # p1 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    #
-    # p1.start()
-    #
-    # while 1:
-    #     a = 1
     local_agent = LocalAgent(ob_shape=4,
                              action_shape=2,
                              ini_weight=ini_weights,
@@ -260,4 +252,25 @@ if __name__ == '__main__':
                              lock=mp.Lock(),
                              plot=True)
     local_agent.train()
+
+    # # A3C:
+    # # Create global network
+    # global_net = GlobalNetwork(ob_shape=4, action_shape=2)
+    # ini_weights = global_net.get_weights()
+    #
+    # # multiprocessing
+    # # mp.set_start_method('spawn')
+    # lock = mp.Lock()
+    # p1 = mp.Process(target=local_run, args=(global_net, 1, lock, True))
+    # p2 = mp.Process(target=local_run, args=(global_net, 1, lock))
+    # p3 = mp.Process(target=local_run, args=(global_net, 1, lock))
+    # p4 = mp.Process(target=local_run, args=(global_net, 1, lock))
+    #
+    # p1.start()
+    # p2.start()
+    # p3.start()
+    # p4.start()
+    #
+    # while 1:
+    #     a = 1  # Keep the main thread alive
 
