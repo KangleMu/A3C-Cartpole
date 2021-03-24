@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 import multiprocessing as mp
 import tensorflow as tf
 import numpy as np
@@ -9,7 +10,7 @@ UNIT_ACTOR_2 = 64  # number of units in 2nd Actor layer
 UNIT_CRITIC_1 = 128  # number of units in 1st Critic layer
 UNIT_CRITIC_2 = 64  # number of units in 2nd Critic layer
 
-EPISODE_MAX = 5000  # max episode of each local agent
+EPISODE_MAX = 1000  # max episode of each local agent
 STEP_MAX = 50  # max step before update network
 
 GAMMA = 0.99  # reward discount
@@ -93,7 +94,7 @@ class LocalAgent(NeuralNetwork):
     Interact with the env and compute the gradient.
     Then send the gradient to the global network.
     """
-    def __init__(self, ob_shape, action_shape, ini_weight, seed, index, global_net, lock):
+    def __init__(self, ob_shape, action_shape, ini_weight, seed, index, global_net, lock, plot=False):
         """
         :param ob_shape: observation dimension
         :param action_shape: action dimension
@@ -102,6 +103,7 @@ class LocalAgent(NeuralNetwork):
         :param index: agent index
         :param global_net: global network
         :param lock: multiprocessing lock
+        :param plot: plot the test reward
         """
         super().__init__(ob_shape, action_shape)
 
@@ -115,6 +117,9 @@ class LocalAgent(NeuralNetwork):
         self.index = index
         self.global_net = global_net
         self.lock = lock
+
+        self.plot = plot
+        self.test_rewards = []
 
     def train(self):
         print('Agent', self.index, 'is training.')
@@ -182,7 +187,8 @@ class LocalAgent(NeuralNetwork):
             self.lock.release()
 
             # Test per 10 updates
-            if i_episode % 10 == 0:
+            if i_episode % 20 == 0:
+                total_rewards = []
                 for round in range(5):
                     state = self.env.reset()
                     total_reward = 0
@@ -196,8 +202,20 @@ class LocalAgent(NeuralNetwork):
                         total_reward += reward
                         if done:
                             state = self.env.reset()
-                            print('Test total rewards:', total_reward)
+                            total_rewards.append(total_reward)
                             break
+                test_reward_ave = np.mean(total_rewards)
+                print('Test total rewards (averaged):', test_reward_ave)
+
+                self.test_rewards.append(test_reward_ave)
+
+        if self.plot:
+            plt.plot(np.array(range(len(self.test_rewards))) * 10, self.test_rewards)
+            plt.xlabel('Number of episodes')
+            plt.ylabel('Test rewards')
+            plt.show()
+
+
 
     def custom_reward(self, state):
         x, x_dot, theta, theta_dot = state
@@ -239,6 +257,7 @@ if __name__ == '__main__':
                              seed=1,
                              index=1,
                              global_net=global_net,
-                             lock=mp.Lock())
+                             lock=mp.Lock(),
+                             plot=True)
     local_agent.train()
 
