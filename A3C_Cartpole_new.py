@@ -224,11 +224,11 @@ class LocalAgent(NeuralNetwork):
         return r1 + r2
 
 
-def local_run(global_net, index, lock, plot=False):
+def local_run(global_net, index, seed, lock, plot=False):
     local_agent = LocalAgent(ob_shape=4,
                              action_shape=2,
                              ini_weight=ini_weights,
-                             seed=1,
+                             seed=seed,
                              index=index,
                              global_net=global_net,
                              lock=lock,
@@ -261,10 +261,10 @@ if __name__ == '__main__':
     # # multiprocessing
     # # mp.set_start_method('spawn')
     # lock = mp.Lock()
-    # p1 = mp.Process(target=local_run, args=(global_net, 1, lock, True))
-    # p2 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    # p3 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    # p4 = mp.Process(target=local_run, args=(global_net, 1, lock))
+    # p1 = mp.Process(target=local_run, args=(global_net, 1, 100, lock, True))
+    # p2 = mp.Process(target=local_run, args=(global_net, 2, 200, lock))
+    # p3 = mp.Process(target=local_run, args=(global_net, 3, 300, lock))
+    # p4 = mp.Process(target=local_run, args=(global_net, 4, 400, lock))
     #
     # p1.start()
     # p2.start()

@@ -43,10 +43,10 @@ if __name__ == '__main__':
     # multiprocessing
     # mp.set_start_method('spawn')
     lock = mp.Lock()
-    p1 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    p2 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    p3 = mp.Process(target=local_run, args=(global_net, 1, lock))
-    p4 = mp.Process(target=local_run, args=(global_net, 1, lock))
+    p1 = mp.Process(target=local_run, args=(global_net, 1, 100, lock))
+    p2 = mp.Process(target=local_run, args=(global_net, 2, 200, lock))
+    p3 = mp.Process(target=local_run, args=(global_net, 3, 300, lock))
+    p4 = mp.Process(target=local_run, args=(global_net, 4, 400, lock))
     
     p1.start()
     p2.start()
