@@ -57,9 +57,9 @@ class NeuralNetwork:
         self.model_ActorCritic.summary()
 
         # generate .PNG figure
-        tf.keras.utils.plot_model(self.model_Actor, 'Actor Network.png', show_shapes=True)
-        tf.keras.utils.plot_model(self.model_Critic, 'Critic Network.png', show_shapes=True)
-        tf.keras.utils.plot_model(self.model_ActorCritic, 'Actor-Critic Network.png', show_shapes=True)
+        tf.keras.utils.plot_model(self.model_Actor, 'Actor_Network.png', show_shapes=True)
+        tf.keras.utils.plot_model(self.model_Critic, 'Critic_Network.png', show_shapes=True)
+        tf.keras.utils.plot_model(self.model_ActorCritic, 'Actor_Critic_Network.png', show_shapes=True)
 
 class GlobalNetwork(NeuralNetwork):
     """
