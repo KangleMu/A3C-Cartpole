@@ -1,4 +1,10 @@
 # A3C-Test
+
+## Prerequisites 
+- Python 3
+- Tensorflow 2.0+ `pip3 install tensorflow`
+- OpenAI gym `pip3 install gym`
+
 ## Usage
 Please run `python3 A3C_Cartpole_new.py`
 
