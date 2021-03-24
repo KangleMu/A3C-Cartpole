@@ -13,7 +13,7 @@ EPISODE_MAX = 5000  # max episode of each local agent
 STEP_MAX = 50  # max step before update network
 
 GAMMA = 0.99  # reward discount
-BETA = 1  # exploration coefficient
+BETA = 0.1  # exploration coefficient
 LR = 0.0001  # learning rate
 
 class NeuralNetwork:
