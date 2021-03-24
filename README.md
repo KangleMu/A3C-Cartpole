@@ -1,12 +1,18 @@
 # A3C-Test
+
+## Prerequisites 
+- Python 3
+- Tensorflow 2.0+ `pip3 install tensorflow`
+- OpenAI gym `pip3 install gym`
+
+## Usage
 Please run `python3 A3C_Cartpole_new.py`
 
----
-
+## Network Structure
 The network structure is shown as follows.
 ![image info](./Actor_Critic_Network.png)
 
----
+## A2C and A3C
 
 For **A2C**, please use the following `main()`
 ```
