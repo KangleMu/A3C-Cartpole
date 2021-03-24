@@ -1,12 +1,12 @@
 # A3C-Test
+## Usage
 Please run `python3 A3C_Cartpole_new.py`
 
----
-
+## Network Structure
 The network structure is shown as follows.
 ![image info](./Actor_Critic_Network.png)
 
----
+## A2C and A3C
 
 For **A2C**, please use the following `main()`
 ```
