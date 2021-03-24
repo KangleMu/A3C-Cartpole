@@ -1,6 +1,13 @@
 # A3C-Test
 Please run `python3 A3C_Cartpole_new.py`
 
+---
+
+The network structure is shown as follows.
+![image info](./Actor_Critic_Network.png)
+
+---
+
 For **A2C**, please use the following `main()`
 ```
 if __name__ == '__main__':
