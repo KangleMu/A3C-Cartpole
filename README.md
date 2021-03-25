@@ -22,7 +22,7 @@ Please run `python3 A3C_Cartpole_new.py`
 
 ## Network Structure
 The network structure is shown as follows.
-![image info](./Actor_Critic_Network.png)
+![image info](./figure/Actor_Critic_Network.png)
 
 ## A2C and A3C
 
