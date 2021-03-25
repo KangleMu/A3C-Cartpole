@@ -67,3 +67,7 @@ if __name__ == '__main__':
 
 ```
 Here, we are using four threads. You can add more threads if you want.
+
+# Evaluation
+More local agents accelerate the training a lot!
+![image info](./figure/A2C_A3C.png)
