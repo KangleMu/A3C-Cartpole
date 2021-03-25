@@ -1,5 +1,17 @@
 # A3C-Test
 
+### Updates
+****
+*Mar 25, 2021*
+
+A3C bugs are fixed! Now we are using `mp.Pipe` to send gradients to the global net.
+
+`GlobalNetwork.receive_grad()` is for gradient receiving and parameter updating.
+
+Plot the test accuracy after training by setting `LocalAgent(plot=Ture)`.
+
+****
+
 ## Prerequisites 
 - Python 3
 - Tensorflow 2.0+ `pip3 install tensorflow`
@@ -14,21 +26,21 @@ The network structure is shown as follows.
 
 ## A2C and A3C
 
-For **A2C**, please use the following `main()`
+For **A2C**, please just run one `mp.Process()`
 ```
 if __name__ == '__main__':
     # Create global network
     global_net = GlobalNetwork(ob_shape=4, action_shape=2)
     ini_weights = global_net.get_weights()
 
-    local_agent = LocalAgent(ob_shape=4,
-                             action_shape=2,
-                             ini_weight=ini_weights,
-                             seed=1,
-                             index=1,
-                             global_net=global_net,
-                             lock=mp.Lock())
-    local_agent.train()
+    # multiprocessing
+    lock = mp.Lock()
+    center_end, local_end = mp.Pipe()
+    p1 = mp.Process(target=local_run, args=(1, 100, True))
+    
+    p1.start()
+
+    global_net.receive_grad(1)
 
 ```
 
@@ -41,20 +53,19 @@ if __name__ == '__main__':
     ini_weights = global_net.get_weights()
 
     # multiprocessing
-    # mp.set_start_method('spawn')
     lock = mp.Lock()
-    p1 = mp.Process(target=local_run, args=(global_net, 1, 100, lock))
-    p2 = mp.Process(target=local_run, args=(global_net, 2, 200, lock))
-    p3 = mp.Process(target=local_run, args=(global_net, 3, 300, lock))
-    p4 = mp.Process(target=local_run, args=(global_net, 4, 400, lock))
-    
+    center_end, local_end = mp.Pipe()
+    p1 = mp.Process(target=local_run, args=(1, 100, True))
+    p2 = mp.Process(target=local_run, args=(2, 200))
+    p3 = mp.Process(target=local_run, args=(3, 300))
+    p4 = mp.Process(target=local_run, args=(4, 400))
+
     p1.start()
     p2.start()
     p3.start()
     p4.start()
-    
-    while 1:
-        a = 1  # Keep the main thread alive
+
+    global_net.receive_grad(4)
 
 ```
 Here, we are using four threads. You can add more threads if you want.

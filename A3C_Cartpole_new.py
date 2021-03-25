@@ -2,7 +2,8 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 import tensorflow as tf
 import numpy as np
-import datetime
+from datetime import datetime
+import time
 import gym
 
 UNIT_ACTOR_1 = 128  # number of units in 1st Actor layer
@@ -11,10 +12,10 @@ UNIT_CRITIC_1 = 128  # number of units in 1st Critic layer
 UNIT_CRITIC_2 = 64  # number of units in 2nd Critic layer
 
 EPISODE_MAX = 1000  # max episode of each local agent
-STEP_MAX = 50  # max step before update network
+STEP_MAX = 10  # max step before update network
 
 GAMMA = 0.99  # reward discount
-BETA = 0.1  # exploration coefficient
+BETA = 0.01  # exploration coefficient
 LR = 0.0001  # learning rate
 
 class NeuralNetwork:
@@ -62,6 +63,7 @@ class NeuralNetwork:
         tf.keras.utils.plot_model(self.model_Critic, 'Critic_Network.png', show_shapes=True)
         tf.keras.utils.plot_model(self.model_ActorCritic, 'Actor_Critic_Network.png', show_shapes=True)
 
+
 class GlobalNetwork(NeuralNetwork):
     """
     Global network.
@@ -87,6 +89,24 @@ class GlobalNetwork(NeuralNetwork):
         """
         return self.opti
 
+    def receive_grad(self, n_agents):
+        """
+        Receive gradients from local agents
+        :param n_agents: number of local agents
+        """
+        done_counter = 0  # count how many agents are done
+        while 1:
+            rec = center_end.recv()  # receive message from local agents
+            if rec == 'Done':
+                done_counter += 1
+                if done_counter == n_agents:
+                    print('Training done!')
+                    break
+            else:
+                d = rec
+                self.opti.apply_gradients(zip(d, self.model_ActorCritic.trainable_weights))
+                center_end.send(self.get_weights())
+
 
 class LocalAgent(NeuralNetwork):
     """
@@ -94,15 +114,13 @@ class LocalAgent(NeuralNetwork):
     Interact with the env and compute the gradient.
     Then send the gradient to the global network.
     """
-    def __init__(self, ob_shape, action_shape, ini_weight, seed, index, global_net, lock, plot=False):
+    def __init__(self, ob_shape, action_shape, ini_weight, seed, index, plot=False):
         """
         :param ob_shape: observation dimension
         :param action_shape: action dimension
         :param ini_weight: initial weights (the same as the global network)
         :param seed: env random seed
         :param index: agent index
-        :param global_net: global network
-        :param lock: multiprocessing lock
         :param plot: plot the test reward
         """
         super().__init__(ob_shape, action_shape)
@@ -115,8 +133,6 @@ class LocalAgent(NeuralNetwork):
         self.env.seed(seed)
 
         self.index = index
-        self.global_net = global_net
-        self.lock = lock
 
         self.plot = plot
         self.test_rewards = []
@@ -143,8 +159,8 @@ class LocalAgent(NeuralNetwork):
                     entropy = tf.reduce_sum(policy * log_policy, keepdims=True)
 
                     # Probe
-                    if step % 20 == 0:
-                        print(policy.numpy()[0])
+                    # if step % 20 == 0:
+                    #     print(policy.numpy()[0])
 
                     # Perform action
                     action = np.random.choice(2, size=1, p=policy.numpy().reshape(-1))[0]
@@ -163,7 +179,7 @@ class LocalAgent(NeuralNetwork):
 
                     if done:
                         state = self.env.reset()
-                        print('Max step:', step + 1)
+                        #print('Max step:', step + 1)
                         break
                 if done:
                     R = 0
@@ -181,13 +197,16 @@ class LocalAgent(NeuralNetwork):
 
             # Compute gradient
             d = t.gradient(loss, self.model_ActorCritic.trainable_weights)
-            self.lock.acquire()
-            self.global_net.opti.apply_gradients(zip(d, self.global_net.model_ActorCritic.trainable_weights))
-            self.model_ActorCritic.set_weights(self.global_net.get_weights())
-            self.lock.release()
 
-            # Test per 10 updates
-            if i_episode % 20 == 0:
+            lock.acquire()
+            local_end.send(d)
+            params = local_end.recv()
+            self.model_ActorCritic.set_weights(params)
+            lock.release()
+
+            # Test per 100 updates
+            if i_episode % 100 == 0:
+                print('Agent', self.index, 'is testing.')
                 total_rewards = []
                 for round in range(5):
                     state = self.env.reset()
@@ -209,9 +228,15 @@ class LocalAgent(NeuralNetwork):
 
                 self.test_rewards.append(test_reward_ave)
 
+        lock.acquire()
+        local_end.send('Done')
+        lock.release()
+
         if self.plot:
-            plt.plot(np.array(range(len(self.test_rewards))) * 10, self.test_rewards)
-            plt.xlabel('Number of episodes')
+            date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+            np.save('logs/'+date, np.array(self.test_rewards))
+            plt.plot(np.array(range(len(self.test_rewards))) * 100, self.test_rewards)
+            plt.xlabel('Number of updates')
             plt.ylabel('Test rewards')
             plt.show()
 
@@ -224,14 +249,12 @@ class LocalAgent(NeuralNetwork):
         return r1 + r2
 
 
-def local_run(global_net, index, seed, lock, plot=False):
+def local_run(index, seed, plot=False):
     local_agent = LocalAgent(ob_shape=4,
                              action_shape=2,
                              ini_weight=ini_weights,
                              seed=seed,
                              index=index,
-                             global_net=global_net,
-                             lock=lock,
                              plot=plot)
     local_agent.train()
 
@@ -239,38 +262,26 @@ def local_run(global_net, index, seed, lock, plot=False):
 
 
 if __name__ == '__main__':
+    """
+    ------------------------A3C-----------------------
+    """
     # Create global network
     global_net = GlobalNetwork(ob_shape=4, action_shape=2)
     ini_weights = global_net.get_weights()
 
-    local_agent = LocalAgent(ob_shape=4,
-                             action_shape=2,
-                             ini_weight=ini_weights,
-                             seed=1,
-                             index=1,
-                             global_net=global_net,
-                             lock=mp.Lock(),
-                             plot=True)
-    local_agent.train()
+    # multiprocessing
+    lock = mp.Lock()
+    center_end, local_end = mp.Pipe()
+    p1 = mp.Process(target=local_run, args=(1, 100, True))
+    p2 = mp.Process(target=local_run, args=(2, 200))
+    p3 = mp.Process(target=local_run, args=(3, 300))
+    p4 = mp.Process(target=local_run, args=(4, 400))
 
-    # # A3C:
-    # # Create global network
-    # global_net = GlobalNetwork(ob_shape=4, action_shape=2)
-    # ini_weights = global_net.get_weights()
-    #
-    # # multiprocessing
-    # # mp.set_start_method('spawn')
-    # lock = mp.Lock()
-    # p1 = mp.Process(target=local_run, args=(global_net, 1, 100, lock, True))
-    # p2 = mp.Process(target=local_run, args=(global_net, 2, 200, lock))
-    # p3 = mp.Process(target=local_run, args=(global_net, 3, 300, lock))
-    # p4 = mp.Process(target=local_run, args=(global_net, 4, 400, lock))
-    #
-    # p1.start()
-    # p2.start()
-    # p3.start()
-    # p4.start()
-    #
-    # while 1:
-    #     a = 1  # Keep the main thread alive
+    p1.start()
+    p2.start()
+    p3.start()
+    p4.start()
+
+    global_net.receive_grad(4)
+
 
