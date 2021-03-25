@@ -1,16 +1,14 @@
 # A3C-Test
 
 ### Updates
-****
-*Mar 25, 2021*
+#### *Mar 25, 2021*
 
-A3C bugs are fixed! Now we are using `mp.Pipe` to send gradients to the global net.
+- A3C bugs are fixed! Now we are using `mp.Pipe` to send gradients to the global net.
 
-`GlobalNetwork.receive_grad()` is for gradient receiving and parameter updating.
+- `GlobalNetwork.receive_grad()` is for gradient receiving and parameter updating.
 
-Plot the test accuracy after training by setting `LocalAgent(plot=Ture)`.
+- Plot the test accuracy after training by setting `LocalAgent(plot=Ture)`.
 
-****
 
 ## Prerequisites 
 - Python 3
