@@ -1,8 +1,6 @@
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import tensorflow as tf
-import tensorflow.compat.v1 as tf
-tf.disable_v2_behavior()
 import numpy as np
 from datetime import datetime
 import time
@@ -19,11 +17,14 @@ UNIT_CRITIC_1 = 128  # number of units in 1st Critic layer
 UNIT_CRITIC_2 = 64  # number of units in 2nd Critic layer
 
 EPISODE_MAX = 1000  # max episode of each local agent
-STEP_MAX = 10  # max step before update network
+STEP_MAX = 5  # max step before update network
 
 GAMMA = 0.99  # reward discount
 BETA = 0.01  # exploration coefficient
 LR = 0.0001  # learning rate
+
+# Global variables from FlappyBird
+DO_NOTHING = np.array([1, 0])
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev = 0.01)
@@ -43,85 +44,28 @@ class NeuralNetwork:
     def __init__(self, action_shape):
         """
         Create Actor-Critic network.
-
-        :param ob_shape: observation dimension
         :param action_shape: action dimension
         """
         
-        # Actor Network
-        # network weights
-        W_conv1_a = weight_variable([8, 8, 1, 32])
-        b_conv1_a = bias_variable([32])
+        # Shared network
+        inputs = tf.keras.Input(shape=(80, 80, 4))
+        x = tf.keras.layers.Conv2D(32, 8, 4)(inputs)
+        x = tf.keras.layers.MaxPool2D((2, 2))(x)
+        x = tf.keras.layers.Conv2D(64, 4, 2)(x)
+        x = tf.keras.layers.MaxPool2D((2, 2), 1)(x)
+        x = tf.keras.layers.Flatten()(x)
 
-        W_conv2_a = weight_variable([4, 4, 32, 64])
-        b_conv2_a = bias_variable([64])
+        # Actor network
+        x_a = tf.keras.layers.Dense(256, activation='relu')(x)
+        outputs_a = tf.keras.layers.Dense(2, activation='relu')(x_a)
 
-        W_conv3_a = weight_variable([3, 3, 64, 64])
-        b_conv3_a = bias_variable([64])
-
-        W_fc1_a = weight_variable([1600, 512])
-        b_fc1_a = bias_variable([512])
-
-        W_fc2_a = weight_variable([512, action_shape])
-        b_fc2_a = bias_variable([action_shape])
-        # input layer
-        
-        inputs = tf.keras.Input(shape=(80,80,1))
-        # hidden layers
-        h_conv1_a = tf.nn.relu(conv2d(inputs, W_conv1_a, 4) + b_conv1_a)
-        h_pool1_a = max_pool_2x2(h_conv1_a)
-
-        h_conv2_a = tf.nn.relu(conv2d(h_pool1_a, W_conv2_a, 2) + b_conv2_a)
-
-        h_conv3_a = tf.nn.relu(conv2d(h_conv2_a, W_conv3_a, 1) + b_conv3_a)
-
-        h_conv3_flat_a = tf.reshape(h_conv3_a, [-1, 1600])
-
-        h_fc1_a = tf.nn.relu(tf.matmul(h_conv3_flat_a, W_fc1_a) + b_fc1_a)
-
-        #out layer
-        outputs_a = tf.matmul(h_fc1_a, W_fc2_a) + b_fc2_a
-
-
+        # Critic network
+        x_c = tf.keras.layers.Dense(256, activation='relu')(x)
+        outputs_c = tf.keras.layers.Dense(1, activation='relu')(x_c)
 
         self.model_Actor = tf.keras.Model(inputs=inputs,
                                           outputs=outputs_a,
                                           name='Actor_Net')
-
-        # Critic Network
-        # network weights
-        W_conv1_c = weight_variable([8, 8, 1, 32])
-        b_conv1_c = bias_variable([32])
-
-        W_conv2_c = weight_variable([4, 4, 32, 64])
-        b_conv2_c = bias_variable([64])
-
-        W_conv3_c = weight_variable([3, 3, 64, 64])
-        b_conv3_c = bias_variable([64])
-
-        W_fc1_c = weight_variable([1600, 512])
-        b_fc1_c = bias_variable([512])
-
-        W_fc2_c = weight_variable([512, 1])
-        b_fc2_c = bias_variable([1])
-
-
-        # hidden layers
-        h_conv1_c = tf.nn.relu(conv2d(inputs, W_conv1_c, 4) + b_conv1_c)
-        h_pool1_c = max_pool_2x2(h_conv1_c)
-
-        h_conv2_c = tf.nn.relu(conv2d(h_pool1_c, W_conv2_c, 2) + b_conv2_c)
-
-
-        h_conv3_c = tf.nn.relu(conv2d(h_conv2_c, W_conv3_c, 1) + b_conv3_c)
-
-        h_conv3_flat_c = tf.reshape(h_conv3_c, [-1, 1600])
-
-        h_fc1_c = tf.nn.relu(tf.matmul(h_conv3_flat_c, W_fc1_c) + b_fc1_c)
-
-        # readout layer
-        outputs_c = tf.matmul(h_fc1_c, W_fc2_c) + b_fc2_c
-
 
         self.model_Critic = tf.keras.Model(inputs=inputs,
                                            outputs=outputs_c,
@@ -216,10 +160,16 @@ class LocalAgent(NeuralNetwork):
         self.plot = plot
         self.test_rewards = []
 
-    def train(self):
+    def train(self, local_end, lock):
         print('Agent', self.index, 'is training.')
 
         # reset the game
+        state_colored, reward, done = self.env.frame_step(DO_NOTHING)
+        # convert states
+        state = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
+        _, state = cv2.threshold(state, 1, 255, cv2.THRESH_BINARY)
+        state = np.stack((state, state, state, state), axis=2)
+
         step_counter = 0
 
         for i_episode in range(EPISODE_MAX):
@@ -231,18 +181,31 @@ class LocalAgent(NeuralNetwork):
 
             with tf.GradientTape() as t:
                 for step in range(STEP_MAX):
-                    logits, value = self.model_ActorCritic(state.reshape((1, -1)))
+                    ########################################
+                    # FIXME:
+                    #  It might be better to normalize the state before feeding to NN.
+                    #  Just a suggestion.
+                    #  -- Phil Mu.
+                    ########################################
+                    logits, value = self.model_ActorCritic(state.reshape((1, 80, 80, 4)) / 255)
                     policy = tf.nn.softmax(logits)
                     log_policy = tf.nn.log_softmax(logits)
                     entropy = tf.reduce_sum(policy * log_policy, keepdims=True)
 
 
-                    # Perform action
+                    # perform action
                     action = np.random.choice(2, size=1, p=policy.numpy().reshape(-1))[0]
+                    # reshape action
+                    action_vec = np.zeros(2)
+                    action_vec[action] = 1
 
-                    state_colored, reward, done = self.env.frame_step(action)
-                    state = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
-                    _, state = cv2.threshold(state, 1, 255, cv2.THRESH_BINARY)
+                    state_colored_next, reward, done = self.env.frame_step(action_vec)
+                    # convert states
+                    state_next = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
+                    _, state_next = cv2.threshold(state_next, 1, 255, cv2.THRESH_BINARY)
+                    state_next = np.reshape(state_next, (80, 80, 1))
+                    state = np.append(state_next, state[:, :, :3], axis=2)
+
                     # Extract the selected log_policy
                     log_policy = tf.reduce_sum(tf.reshape(tf.one_hot(action, 2), (1, -1)) * log_policy)
 
@@ -278,6 +241,12 @@ class LocalAgent(NeuralNetwork):
             self.model_ActorCritic.set_weights(params)
             lock.release()
 
+            ########################################
+            # TODO:
+            #  Just a remainder: Don't forget Normalization in test. :)
+            #  -- Phil Mu.
+            ########################################
+
             # Test per 100 updates
             # if i_episode % 100 == 0:
             #     print('Agent', self.index, 'is testing.')
@@ -306,21 +275,21 @@ class LocalAgent(NeuralNetwork):
         local_end.send('Done')
         lock.release()
 
-        if self.plot:
-            date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-            np.save('logs/'+date, np.array(self.test_rewards))
-            plt.plot(np.array(range(len(self.test_rewards))) * 100, self.test_rewards)
-            plt.xlabel('Number of updates')
-            plt.ylabel('Test rewards')
-            plt.show()
+        # if self.plot:
+        #     date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
+        #     np.save('logs/'+date, np.array(self.test_rewards))
+        #     plt.plot(np.array(range(len(self.test_rewards))) * 100, self.test_rewards)
+        #     plt.xlabel('Number of updates')
+        #     plt.ylabel('Test rewards')
+        #     plt.show()
 
 
-def local_run(index, plot=False):
+def local_run(index, ini_weights, local_end, lock, plot=False):
     local_agent = LocalAgent(action_shape=2,
                              ini_weight=ini_weights,
                              index=index,
                              plot=plot)
-    local_agent.train()
+    local_agent.train(local_end, lock)
 
 
 
@@ -330,16 +299,18 @@ if __name__ == '__main__':
     ------------------------A3C-----------------------
     """
     # Create global network
+
     global_net = GlobalNetwork(action_shape=2)
     ini_weights = global_net.get_weights()
 
     # multiprocessing
+    mp.set_start_method('spawn')
     lock = mp.Lock()
     center_end, local_end = mp.Pipe()
-    p1 = mp.Process(target=local_run, args=(1, True))
-    p2 = mp.Process(target=local_run, args=(2, ))
-    p3 = mp.Process(target=local_run, args=(3, ))
-    p4 = mp.Process(target=local_run, args=(4, ))
+    p1 = mp.Process(target=local_run, args=(1, ini_weights, local_end, lock, True))
+    p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
+    p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
+    p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
 
     p1.start()
     p2.start()
