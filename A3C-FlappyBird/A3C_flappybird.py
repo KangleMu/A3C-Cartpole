@@ -201,7 +201,7 @@ class LocalAgent(NeuralNetwork):
 
                     state_colored_next, reward, done = self.env.frame_step(action_vec)
                     # convert states
-                    state_next = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
+                    state_next = cv2.cvtColor(cv2.resize(state_colored_next, (80, 80)), cv2.COLOR_BGR2GRAY)
                     _, state_next = cv2.threshold(state_next, 1, 255, cv2.THRESH_BINARY)
                     state_next = np.reshape(state_next, (80, 80, 1))
                     state = np.append(state_next, state[:, :, :3], axis=2)
@@ -308,14 +308,14 @@ if __name__ == '__main__':
     lock = mp.Lock()
     center_end, local_end = mp.Pipe()
     p1 = mp.Process(target=local_run, args=(1, ini_weights, local_end, lock, True))
-    p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
-    p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
-    p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
+    # p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
+    # p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
+    # p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
 
     p1.start()
-    p2.start()
-    p3.start()
-    p4.start()
+    # p2.start()
+    # p3.start()
+    # p4.start()
 
     global_net.receive_grad(4)
 
