@@ -186,13 +186,7 @@ class LocalAgent(NeuralNetwork):
 
             with tf.GradientTape() as t:
                 for step in range(STEP_MAX):
-                    ########################################
-                    # FIXME:
-                    #  It might be better to normalize the state before feeding to NN.
-                    #  Just a suggestion.
-                    #  -- Phil Mu.
-                    ########################################
-                    ##
+
                     self.total_step += 1
 
                     layer = tf.keras.layers.LayerNormalization(axis=1)
@@ -314,6 +308,7 @@ def local_run(index, ini_weights, local_end, lock, plot=False):
 
 
 
+
 if __name__ == '__main__':
     """
     ------------------------A3C-----------------------
@@ -333,9 +328,9 @@ if __name__ == '__main__':
     p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
 
     p1.start()
-    p2.start()
-    p3.start()
-    p4.start()
+    # p2.start()
+    # p3.start()
+    # p4.start()
 
     global_net.receive_grad(4)
 
