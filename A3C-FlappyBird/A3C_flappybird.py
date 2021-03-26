@@ -55,11 +55,11 @@ class NeuralNetwork:
 
         # Actor network
         x_a = tf.keras.layers.Dense(256, activation='relu')(x)
-        outputs_a = tf.keras.layers.Dense(2, activation='relu')(x_a)
+        outputs_a = tf.keras.layers.Dense(2)(x_a)
 
         # Critic network
         x_c = tf.keras.layers.Dense(256, activation='relu')(x)
-        outputs_c = tf.keras.layers.Dense(1, activation='relu')(x_c)
+        outputs_c = tf.keras.layers.Dense(1)(x_c)
 
         self.model_Actor = tf.keras.Model(inputs=inputs,
                                           outputs=outputs_a,
@@ -243,7 +243,7 @@ class LocalAgent(NeuralNetwork):
                     actor_loss += (R - values[i]) * log_policys[i]
                     critic_loss += (R - values[i]) ** 2
                     entropy_loss += entropies[i]
-                loss = - actor_loss + critic_loss - BETA * entropy_loss
+                loss = - actor_loss + critic_loss + BETA * entropy_loss
 
             # Compute gradient
             d = t.gradient(loss, self.model_ActorCritic.trainable_weights)
