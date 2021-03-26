@@ -16,15 +16,13 @@ UNIT_ACTOR_2 = 64  # number of units in 2nd Actor layer
 UNIT_CRITIC_1 = 128  # number of units in 1st Critic layer
 UNIT_CRITIC_2 = 64  # number of units in 2nd Critic layer
 
-EPISODE_MAX = 1000  # max episode of each local agent
+EPISODE_MAX = 60000  # max episode of each local agent
 STEP_MAX = 5  # max step before update network
 
 GAMMA = 0.99  # reward discount
 BETA = 0.01  # exploration coefficient
 LR = 0.0001  # learning rate
 
-# Global variables from FlappyBird
-DO_NOTHING = np.array([1, 0])
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev = 0.01)
@@ -73,7 +71,7 @@ class NeuralNetwork:
 
         # Actor-Critic Network
         self.model_ActorCritic = tf.keras.Model(inputs=inputs,
-                                                outputs=[outputs_a, outputs_c],
+                                                outputs=[outputs_a, outputs_c, x],
                                                 name='ActorCritic_Net')
 
     def show_model(self):
@@ -160,10 +158,17 @@ class LocalAgent(NeuralNetwork):
         self.plot = plot
         self.test_rewards = []
 
+        self.total_step = 0
+        self.step_terminal = []
+
+        self.index_to_save = 0
+
     def train(self, local_end, lock):
         print('Agent', self.index, 'is training.')
 
         # reset the game
+        DO_NOTHING = np.array([0, 0])
+        DO_NOTHING[np.random.randint(2)] = 1
         state_colored, reward, done = self.env.frame_step(DO_NOTHING)
         # convert states
         state = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
@@ -187,7 +192,14 @@ class LocalAgent(NeuralNetwork):
                     #  Just a suggestion.
                     #  -- Phil Mu.
                     ########################################
-                    logits, value = self.model_ActorCritic(state.reshape((1, 80, 80, 4)) / 255)
+                    ##
+                    self.total_step += 1
+
+                    layer = tf.keras.layers.LayerNormalization(axis=1)
+                    state_reshape = tf.cast(state.reshape((1, 80, 80, 4)), tf.float32)
+                    normaliz_state = layer(state_reshape)
+
+                    logits, value, test = self.model_ActorCritic(normaliz_state)
                     policy = tf.nn.softmax(logits)
                     log_policy = tf.nn.log_softmax(logits)
                     entropy = tf.reduce_sum(policy * log_policy, keepdims=True)
@@ -217,6 +229,7 @@ class LocalAgent(NeuralNetwork):
 
                     if done:
                         #print('Max step:', step + 1)
+                        self.step_terminal.append(self.total_step)
                         break
                 if done:
                     R = 0
@@ -239,6 +252,13 @@ class LocalAgent(NeuralNetwork):
             local_end.send(d)
             params = local_end.recv()
             self.model_ActorCritic.set_weights(params)
+
+
+            print("Agent {0} is fininsh the {1}th episode".format(self.index, i_episode))
+            if self.total_step > 5000 * self.index_to_save:
+                self.index_to_save += 1
+                np.save("log_socre_" + str(self.index), np.array(self.step_terminal))
+
             lock.release()
 
             ########################################
@@ -308,14 +328,14 @@ if __name__ == '__main__':
     lock = mp.Lock()
     center_end, local_end = mp.Pipe()
     p1 = mp.Process(target=local_run, args=(1, ini_weights, local_end, lock, True))
-    # p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
-    # p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
-    # p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
+    p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
+    p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
+    p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
 
     p1.start()
-    # p2.start()
-    # p3.start()
-    # p4.start()
+    p2.start()
+    p3.start()
+    p4.start()
 
     global_net.receive_grad(4)
 
