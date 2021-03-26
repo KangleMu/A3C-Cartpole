@@ -20,23 +20,9 @@ EPISODE_MAX = 60000  # max episode of each local agent
 STEP_MAX = 5  # max step before update network
 
 GAMMA = 0.99  # reward discount
-BETA = 0.01  # exploration coefficient
+BETA = 0.1  # exploration coefficient
 LR = 0.0001  # learning rate
 
-
-def weight_variable(shape):
-    initial = tf.truncated_normal(shape, stddev = 0.01)
-    return tf.Variable(initial).initialized_value()
-
-def bias_variable(shape):
-    initial = tf.constant(0.01, shape = shape)
-    return tf.Variable(initial).initialized_value()
-
-def conv2d(x, W, stride):
-    return tf.nn.conv2d(x, W, strides = [1, stride, stride, 1], padding = "SAME")
-
-def max_pool_2x2(x):
-    return tf.nn.max_pool(x, ksize = [1, 2, 2, 1], strides = [1, 2, 2, 1], padding = "SAME")
 
 class NeuralNetwork:
     def __init__(self, action_shape):
@@ -47,7 +33,8 @@ class NeuralNetwork:
         
         # Shared network
         inputs = tf.keras.Input(shape=(80, 80, 4))
-        x = tf.keras.layers.Conv2D(32, 8, 4)(inputs)
+        x = tf.keras.layers.LayerNormalization(axis=1)(inputs)
+        x = tf.keras.layers.Conv2D(32, 8, 4)(x)
         x = tf.keras.layers.MaxPool2D((2, 2))(x)
         x = tf.keras.layers.Conv2D(64, 4, 2)(x)
         x = tf.keras.layers.MaxPool2D((2, 2), 1)(x)
@@ -126,6 +113,8 @@ class GlobalNetwork(NeuralNetwork):
                 if done_counter == n_agents:
                     print('Training done!')
                     break
+            elif rec == 'Test':
+                center_end.send(self.get_weights())
             else:
                 d = rec
                 self.opti.apply_gradients(zip(d, self.model_ActorCritic.trainable_weights))
@@ -189,15 +178,13 @@ class LocalAgent(NeuralNetwork):
 
                     self.total_step += 1
 
-                    layer = tf.keras.layers.LayerNormalization(axis=1)
                     state_reshape = tf.cast(state.reshape((1, 80, 80, 4)), tf.float32)
-                    normaliz_state = layer(state_reshape)
 
-                    logits, value, test = self.model_ActorCritic(normaliz_state)
+                    logits, value, test = self.model_ActorCritic(state_reshape)
                     policy = tf.nn.softmax(logits)
                     log_policy = tf.nn.log_softmax(logits)
                     entropy = tf.reduce_sum(policy * log_policy, keepdims=True)
-
+                    print(policy.numpy())
 
                     # perform action
                     action = np.random.choice(2, size=1, p=policy.numpy().reshape(-1))[0]
@@ -255,47 +242,87 @@ class LocalAgent(NeuralNetwork):
 
             lock.release()
 
-            ########################################
-            # TODO:
-            #  Just a remainder: Don't forget Normalization in test. :)
-            #  -- Phil Mu.
-            ########################################
-
-            # Test per 100 updates
-            # if i_episode % 100 == 0:
-            #     print('Agent', self.index, 'is testing.')
-            #     total_rewards = []
-            #     for round in range(5):
-            #         state = self.env.reset()
-            #         total_reward = 0
-            #         while 1:
-            #             logits = self.model_Actor(state.reshape((1, -1)))
-            #             policy = tf.nn.softmax(logits)
-            #             action = np.argmax(policy)
-            #             state, reward, done, _ = self.env.step(action)
-            #             reward = self.custom_reward(state)
-            #             self.env.render()
-            #             total_reward += reward
-            #             if done:
-            #                 state = self.env.reset()
-            #                 total_rewards.append(total_reward)
-            #                 break
-            #     test_reward_ave = np.mean(total_rewards)
-            #     print('Test total rewards (averaged):', test_reward_ave)
-
-            #     self.test_rewards.append(test_reward_ave)
-
         lock.acquire()
         local_end.send('Done')
         lock.release()
 
-        # if self.plot:
-        #     date = datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
-        #     np.save('logs/'+date, np.array(self.test_rewards))
-        #     plt.plot(np.array(range(len(self.test_rewards))) * 100, self.test_rewards)
-        #     plt.xlabel('Number of updates')
-        #     plt.ylabel('Test rewards')
-        #     plt.show()
+class TestAgent(NeuralNetwork):
+    """
+    Test agent.
+    """
+    def __init__(self, action_shape, ini_weight, plot=False):
+        """
+        :param action_shape: action dimension
+        :param ini_weight: initial weights (the same as the global network)
+        :param index: agent index
+        :param plot: plot the test reward
+        """
+        super().__init__(action_shape)
+
+        # initialize the weights
+        self.model_ActorCritic.set_weights(weights=ini_weight)
+
+        # create game
+        self.env = game.GameState()
+
+        self.plot = plot
+        self.test_rewards = []
+
+        self.total_step = 0
+        self.step_terminal = []
+
+        self.index_to_save = 0
+
+    def test(self, local_end, lock):
+
+        # reset the game
+        DO_NOTHING = np.array([0, 0])
+        DO_NOTHING[np.random.randint(2)] = 1
+        state_colored, reward, done = self.env.frame_step(DO_NOTHING)
+        # convert states
+        state = cv2.cvtColor(cv2.resize(state_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
+        _, state = cv2.threshold(state, 1, 255, cv2.THRESH_BINARY)
+        state = np.stack((state, state, state, state), axis=2)
+
+        step_counter = 0
+
+        while 1:
+            rewards = []
+
+            for round in range(5):
+                while 1:
+                    layer = tf.keras.layers.LayerNormalization(axis=1)
+                    state_reshape = tf.cast(state.reshape((1, 80, 80, 4)), tf.float32)
+                    normaliz_state = layer(state_reshape)
+
+                    logits, value, test = self.model_ActorCritic(normaliz_state)
+                    policy = tf.nn.softmax(logits)
+                    action = np.argmax(policy)
+
+                    # reshape action
+                    action_vec = np.zeros(2)
+                    action_vec[action] = 1
+
+                    state_colored_next, reward, done = self.env.frame_step(action_vec)
+                    # convert states
+                    state_next = cv2.cvtColor(cv2.resize(state_colored_next, (80, 80)), cv2.COLOR_BGR2GRAY)
+                    _, state_next = cv2.threshold(state_next, 1, 255, cv2.THRESH_BINARY)
+                    state_next = np.reshape(state_next, (80, 80, 1))
+                    state = np.append(state_next, state[:, :, :3], axis=2)
+
+                    rewards.append(reward)
+
+                    if done:
+                        print('Test total rewards:', sum(rewards))
+                        break
+
+                lock.acquire()
+                local_end.send('Test')
+                params = local_end.recv()
+                self.model_ActorCritic.set_weights(params)
+                lock.release()
+
+            time.sleep(5)
 
 
 def local_run(index, ini_weights, local_end, lock, plot=False):
@@ -306,7 +333,11 @@ def local_run(index, ini_weights, local_end, lock, plot=False):
     local_agent.train(local_end, lock)
 
 
-
+def test_run(ini_weights, local_end, lock, plot=False):
+    test_agent = TestAgent(action_shape=2,
+                           ini_weight=ini_weights,
+                           plot=plot)
+    test_agent.test(local_end, lock)
 
 
 if __name__ == '__main__':
@@ -314,7 +345,6 @@ if __name__ == '__main__':
     ------------------------A3C-----------------------
     """
     # Create global network
-
     global_net = GlobalNetwork(action_shape=2)
     ini_weights = global_net.get_weights()
 
@@ -325,12 +355,14 @@ if __name__ == '__main__':
     p1 = mp.Process(target=local_run, args=(1, ini_weights, local_end, lock, True))
     p2 = mp.Process(target=local_run, args=(2, ini_weights, local_end, lock))
     p3 = mp.Process(target=local_run, args=(3, ini_weights, local_end, lock))
-    p4 = mp.Process(target=local_run, args=(4, ini_weights, local_end, lock))
+
+    p_test = mp.Process(target=test_run, args=(ini_weights, local_end, lock))  # thread of test agent
 
     p1.start()
-    # p2.start()
-    # p3.start()
-    # p4.start()
+    p2.start()
+    p3.start()
+
+    p_test.start()
 
     global_net.receive_grad(4)
 
