@@ -11,12 +11,12 @@ UNIT_ACTOR_2 = 64  # number of units in 2nd Actor layer
 UNIT_CRITIC_1 = 128  # number of units in 1st Critic layer
 UNIT_CRITIC_2 = 64  # number of units in 2nd Critic layer
 
-EPISODE_MAX = 1000  # max episode of each local agent
-STEP_MAX = 10  # max step before update network
+EPISODE_MAX = 10000  # max episode of each local agent
+STEP_MAX = 5  # max step before update network
 
 GAMMA = 0.99  # reward discount
 BETA = 0.01  # exploration coefficient
-LR = 0.0001  # learning rate
+LR = 0.00005  # learning rate
 
 class NeuralNetwork:
     def __init__(self, ob_shape, action_shape):
