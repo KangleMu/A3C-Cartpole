@@ -1,6 +1,10 @@
 # A3C-Test
 
 ### Updates
+#### *Mar 27, 2022*
+- A3C now works well on **Flappy Bird**.
+- The wrong sign in the loss of A3C is fixed. Now **CartPole** is much faster and more stable.
+
 #### *Mar 25, 2021*
 
 - A3C bugs are fixed! Now we are using `mp.Pipe` to send gradients to the global net.
@@ -19,8 +23,11 @@
 Please run `python3 A3C_Cartpole_new.py`
 
 ## Network Structure
-The network structure is shown as follows.
-![image info](./figure/Actor_Critic_Network.png)
+The network structure for **CartPole** is shown as follows.
+![image info](./figure/Actor_Critic_Network_CartPole.png)
+
+The network structure for **Flappy Bird** is shown as follows.
+![image info](./figure/Actor_Critic_Network_FlappyBird.png)
 
 ## A2C and A3C
 
