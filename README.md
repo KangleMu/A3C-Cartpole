@@ -28,11 +28,13 @@ Please run `python3 A3C-FlappyBird/A3C_flappybird.py`
 
 ## Network Structure
 The network structure for **CartPole** is shown as follows.
-![image info](./figure/Actor_Critic_Network_CartPole.png | width=200)
+
+<img src="https://github.com/KangleMu/A3C-Cartpole/blob/main/figure/Actor_Critic_Network_CartPole.png" width="600">
 
 
 The network structure for **Flappy Bird** is shown as follows.
-![image info](./figure/Actor_Critic_Network_FlappyBird.png)
+
+<img src="https://github.com/KangleMu/A3C-Cartpole/blob/main/figure/Actor_Critic_Network_FlappyBird.png" width="600">
 
 ## A2C and A3C
 
