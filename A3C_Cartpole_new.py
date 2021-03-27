@@ -193,7 +193,7 @@ class LocalAgent(NeuralNetwork):
                     actor_loss += (R - values[i]) * log_policys[i]
                     critic_loss += (R - values[i]) ** 2
                     entropy_loss += entropies[i]
-                loss = - actor_loss + critic_loss - BETA * entropy_loss
+                loss = - actor_loss + critic_loss + BETA * entropy_loss
 
             # Compute gradient
             d = t.gradient(loss, self.model_ActorCritic.trainable_weights)
