@@ -28,7 +28,8 @@ Please run `python3 A3C-FlappyBird/A3C_flappybird.py`
 
 ## Network Structure
 The network structure for **CartPole** is shown as follows.
-![image info](./figure/Actor_Critic_Network_CartPole.png)
+![image info](./figure/Actor_Critic_Network_CartPole.png | width=200)
+
 
 The network structure for **Flappy Bird** is shown as follows.
 ![image info](./figure/Actor_Critic_Network_FlappyBird.png)
