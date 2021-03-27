@@ -18,9 +18,13 @@
 - Python 3
 - Tensorflow 2.0+ `pip3 install tensorflow`
 - OpenAI gym `pip3 install gym`
+- Pygame `pip3 install pygame` (only for Flappy Bird)
 
 ## Usage
+### CartPole
 Please run `python3 A3C_Cartpole_new.py`
+### Flappy Bird
+Please run `python3 A3C-FlappyBird/A3C_flappybird.py`
 
 ## Network Structure
 The network structure for **CartPole** is shown as follows.
