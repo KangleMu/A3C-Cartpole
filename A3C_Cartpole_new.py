@@ -15,8 +15,8 @@ EPISODE_MAX = 10000  # max episode of each local agent
 STEP_MAX = 5  # max step before update network
 
 GAMMA = 0.99  # reward discount
-BETA = 0.01  # exploration coefficient
-LR = 0.00005  # learning rate
+BETA = 0.1  # exploration coefficient
+LR = 0.0001  # learning rate
 
 class NeuralNetwork:
     def __init__(self, ob_shape, action_shape):
@@ -189,8 +189,9 @@ class LocalAgent(NeuralNetwork):
                 critic_loss = 0
                 entropy_loss = 0
                 for i in range(step, -1, -1):
+                    value_scalar = values[i].numpy()[0, 0]
                     R = GAMMA * R + rewards[i]
-                    actor_loss += (R - values[i]) * log_policys[i]
+                    actor_loss += (R - value_scalar) * log_policys[i]
                     critic_loss += (R - values[i]) ** 2
                     entropy_loss += entropies[i]
                 loss = - actor_loss + critic_loss + BETA * entropy_loss
