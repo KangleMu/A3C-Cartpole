@@ -1,7 +1,7 @@
 # A3C-Test
 
 ### Updates
-#### *Mar 27, 2022*
+#### *Mar 27, 2021*
 - A3C now works well on **Flappy Bird**.
 - The wrong sign in the loss of A3C is fixed. Now **CartPole** is much faster and more stable.
 
